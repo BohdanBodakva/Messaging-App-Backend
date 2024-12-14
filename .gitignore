@@ -32,6 +32,9 @@ MANIFEST
 *.manifest
 *.spec
 
+# Environment variables file (custom name 'env_vars.yml')
+env_vars.yml
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
