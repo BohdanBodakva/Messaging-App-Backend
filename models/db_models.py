@@ -18,7 +18,7 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=False)
     surname = db.Column(db.String(100))
     last_seen = db.Column(db.DateTime, nullable=False, default=datetime.now())
-    password = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.Text, nullable=False)
     chats = db.relationship('Chat', secondary=user_chat, back_populates=__tablename__, lazy='joined')
 
     def __repr__(self):
@@ -61,6 +61,7 @@ class Message(db.Model):
             "is_read": self.is_read,
             "chat": self.chat_id
             }
+
 
 class Chat(db.Model):
     __tablename__ = 'chats'

@@ -1,0 +1,1 @@
+INVALID_JWT_MESSAGE = "JWT token is invalid"
