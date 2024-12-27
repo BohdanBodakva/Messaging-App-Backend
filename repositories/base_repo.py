@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class BaseCrudRepo(ABC):
     @abstractmethod
     def get_all(self): pass
