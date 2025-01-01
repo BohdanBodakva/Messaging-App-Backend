@@ -43,9 +43,9 @@ class UserRepo(BaseCrudRepo):
         if not isinstance(new_user, User):
             raise ValueError(f"Value {new_user} must be 'User' type")
 
-        user_to_update = User.query.filter_by(id=item_id).first()
+        user_to_update = User.query.filter_by(id=user_id).first()
         if user_to_update is None:
-            raise ValueError(f"User with id={item_id} doesn't exist")
+            raise ValueError(f"User with id={user_id} doesn't exist")
 
         # update params
         if new_user.username:
@@ -63,13 +63,11 @@ class UserRepo(BaseCrudRepo):
             db.session.rollback()
             raise e
 
-        return user_id
+        return user_to_update
 
-    def update_last_seen_by_id(self, user_id: int, new_last_seen: datetime):
+    def update_last_seen_by_id(self, user_id: int, new_last_seen: datetime = None):
         if not isinstance(user_id, int):
             raise ValueError(f"Value {user_id} must be 'int' type")
-        if not isinstance(new_last_seen, datetime.datetime):
-            raise ValueError(f"'last_seen' must be 'datetime.datetime' type")
 
         user_to_update = User.query.filter_by(id=user_id).first()
         if user_to_update is None:
