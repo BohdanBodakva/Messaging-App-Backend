@@ -16,6 +16,19 @@ class MessageRepo(BaseCrudRepo):
 
         return message
 
+    def get_by_chat_id(self, chat_id: int, limit: int, offset: int):
+        if not isinstance(chat_id, int):
+            raise ValueError(f"Value {chat_id} must be 'int' type")
+        if not isinstance(limit, int):
+            raise ValueError(f"Value {limit} must be 'int' type")
+        if not isinstance(offset, int):
+            raise ValueError(f"Value {offset} must be 'int' type")
+
+        messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.send_at.desc())\
+            .limit(limit).offset(offset).all()
+
+        return messages
+
     def create(self, message: Message):
         if not isinstance(message, Message):
             raise ValueError(f"Value {message} must be 'Message' type")

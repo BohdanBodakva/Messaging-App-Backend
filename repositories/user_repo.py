@@ -1,5 +1,5 @@
 from repositories.base_repo import BaseCrudRepo
-from models.db_models import db, User
+from models.db_models import db, User, Chat
 from datetime import datetime
 
 
@@ -15,6 +15,14 @@ class UserRepo(BaseCrudRepo):
         user = User.query.filter_by(id=user_id).first()
 
         return user
+
+    def get_by_chat_id(self, chat_id: int):
+        if not isinstance(chat_id, int):
+            raise ValueError(f"Value {chat_id} must be 'int' type")
+
+        users = User.query.join(User.chats).filter(Chat.id == chat_id).all()
+
+        return users
 
     def get_by_username(self, user_username: str):
         if not isinstance(user_username, str):
@@ -95,10 +103,10 @@ class UserRepo(BaseCrudRepo):
         item_to_update = User.query.filter_by(id=user_id).first()
         if not item_to_update:
             raise ValueError(f"User with id={user_id} doesn't exist")
-        
+
         # update password
         item_to_update.password = new_password
-        
+
         try:
             db.session.commit()
         except Exception as e:
@@ -121,5 +129,6 @@ class UserRepo(BaseCrudRepo):
         except Exception as e:
             db.session.rollback()
             raise e
+
 
 user_repo = UserRepo()

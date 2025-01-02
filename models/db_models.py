@@ -126,7 +126,7 @@ class SentFile(db.Model):
         return {
             "id": self.id,
             "file_link": self.file_link,
-            "message": self.message_id
+            "message_id": self.message_id
         }
 
 
