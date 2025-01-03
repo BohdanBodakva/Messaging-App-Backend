@@ -10,8 +10,8 @@ class ChatRepo(BaseCrudRepo):
         all_chats = Chat.query.all()
         return all_chats
 
-    def get_chats_only(self):
-        only_chats = Chat.query.filter_by(is_group=False).all()
+    def get_chats_by_is_group(self, is_group: bool):
+        only_chats = Chat.query.filter_by(is_group=is_group).all()
         return only_chats
 
     def get_by_id(self, chat_id: int):

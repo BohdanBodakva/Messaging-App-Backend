@@ -284,28 +284,37 @@ def delete_message(data):
 @socketio.on("create_chat")
 def create_chat(data):
     current_user_id = int(data.get("current_user_id"))
-    user_id = int(data.get("user_id"))
+    user_ids = list(data.get("user_ids"))
+    is_group = bool(data.get("is_group"))
     created_at = data.get("created_at")
+    name = data.get("name")
+    chat_photo_link = data.get("chat_photo_link")
 
-    user = user_repo.get_by_id(user_id)
+    users = [user_repo.get_by_id(u_id) for u_id in user_ids]
 
-    chats_only = chat_repo.get_chats_only()
+    chats_by_is_group = chat_repo.get_chats_by_is_group(is_group=is_group)
 
     def do_filter(c):
         user_ids = [u.id for u in c.users]
         return (current_user_id in user_ids) and (user_id in user_ids)
 
-    filtered_chats = list(filter(lambda c: do_filter(c), chats_only))
+    if is_group:
+        filtered_chats = None
+    else:
+        filtered_chats = list(filter(lambda c: do_filter(c), chats_by_is_group))
 
     chat = None
     if not filtered_chats:
         current_user = user_repo.get_by_id(current_user_id)
 
-        if current_user and user:
+        if current_user and users:
             new_chat = Chat(
+                name=name if (is_group and name) else None,
+                admin_id=current_user_id if is_group else None,
+                chat_photo_link=chat_photo_link if (is_group and chat_photo_link) else None,
                 created_at=created_at,
-                is_group=False,
-                users=[current_user, user]
+                is_group=is_group,
+                users=[current_user, *users]
             )
 
             new_chat_id = chat_repo.create(new_chat)
@@ -320,10 +329,11 @@ def create_chat(data):
         {
             "current_user_id": current_user_id,
             "chat": chat.serialize(),
-            "user": user.serialize()
+            "users": [u.serialize() for u in users]
         },
         broadcast=True
     )
+
 
 # ================================================================================================================
 
