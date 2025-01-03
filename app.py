@@ -91,7 +91,21 @@ def fill_db():
         password=generate_password_hash("3")
     )
 
-    db.session.add_all([user1, user2, user3])
+    user4 = User(
+        name="User",
+        surname="4",
+        username="user_4",
+        password=generate_password_hash("4")
+    )
+
+    user5 = User(
+        name="User",
+        surname="5",
+        username="user_5",
+        password=generate_password_hash("5")
+    )
+
+    db.session.add_all([user1, user2, user3, user4, user5])
     db.session.commit()
 
 

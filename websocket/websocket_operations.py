@@ -4,7 +4,8 @@ from flask import request
 from flask_socketio import SocketIO, rooms, emit, join_room, leave_room
 
 from controllers.http_handlers.handlers import validate_access_token
-from models.db_models import Message, SentFile
+from models.db_models import Message, SentFile, User, Chat
+from repositories.chat_repo import chat_repo
 from repositories.message_repo import message_repo
 from repositories.user_repo import user_repo
 
@@ -110,9 +111,9 @@ def connect(data):
 def load_user(data):
     try:
         user_id = int(data.get('user_id'))
-        user = user_repo.get_by_id(user_id)
-
         user_repo.update_last_seen_by_id(user_id=user_id, new_last_seen=None)
+
+        user = user_repo.get_by_id(user_id)
 
         user_to_load = user.serialize(include_chats=True)
         user_to_inform_update = user.serialize()
@@ -167,8 +168,6 @@ def load_chat_history(data):
 
         is_end = len(messages) < items_count
 
-        print("chat_id:", chat_id, "messages:", messages)
-
         emit(
             "load_chat_history",
             {
@@ -188,44 +187,7 @@ def load_chat_history(data):
         )
 
 
-# @socketio.on("add_chat_history")
-# def add_chat_history(data):
-#     try:
-#         chat_id = int(data.get('chat_id'))
-#         items_count = int(data.get('items_count'))
-#         offset = int(data.get('offset'))
-#
-#         messages = message_repo.get_by_chat_id(chat_id=chat_id, limit=items_count, offset=offset)
-#         print("g:", type(messages[0].send_at))
-#         messages.sort(key=lambda msg: msg.send_at)
-#         messages = [msg.serialize() for msg in messages]
-#
-#         is_end = len(messages) < limit
-#
-#         print("chat_id:", chat_id, "messages:", messages)
-#
-#         emit(
-#             "add_chat_history",
-#             {
-#                 "chat_id": chat_id,
-#                 "chat_history": messages,
-#                 "is_end": is_end
-#             },
-#             to=request.sid
-#         )
-#     except Exception as e:
-#         emit(
-#             "add_chat_history_error",
-#             {
-#                 "error": repr(e)
-#             },
-#             to=request.sid
-#         )
 
-
-# @socketio.on("disconnect")
-# def disconnect():
-#     print("Disconnected")
 
 
 # === ROOMS ===
@@ -314,6 +276,53 @@ def delete_message(data):
             "status": "Deleted"
         },
         to=room
+    )
+
+
+
+
+@socketio.on("create_chat")
+def create_chat(data):
+    current_user_id = int(data.get("current_user_id"))
+    user_id = int(data.get("user_id"))
+    created_at = data.get("created_at")
+
+    user = user_repo.get_by_id(user_id)
+
+    chats_only = chat_repo.get_chats_only()
+
+    def do_filter(c):
+        user_ids = [u.id for u in c.users]
+        return (current_user_id in user_ids) and (user_id in user_ids)
+
+    filtered_chats = list(filter(lambda c: do_filter(c), chats_only))
+
+    chat = None
+    if not filtered_chats:
+        current_user = user_repo.get_by_id(current_user_id)
+
+        if current_user and user:
+            new_chat = Chat(
+                created_at=created_at,
+                is_group=False,
+                users=[current_user, user]
+            )
+
+            new_chat_id = chat_repo.create(new_chat)
+
+            chat = new_chat
+            chat.id = new_chat_id
+    else:
+        chat = filtered_chats[0]
+
+    emit(
+        "create_chat",
+        {
+            "current_user_id": current_user_id,
+            "chat": chat.serialize(),
+            "user": user.serialize()
+        },
+        broadcast=True
     )
 
 # ================================================================================================================

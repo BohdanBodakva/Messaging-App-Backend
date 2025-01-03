@@ -1,5 +1,7 @@
+from sqlalchemy import func
+
 from repositories.base_repo import BaseCrudRepo
-from models.db_models import db, Chat
+from models.db_models import db, Chat, user_chat
 from datetime import datetime
 
 
@@ -8,6 +10,10 @@ class ChatRepo(BaseCrudRepo):
         all_chats = Chat.query.all()
         return all_chats
 
+    def get_chats_only(self):
+        only_chats = Chat.query.filter_by(is_group=False).all()
+        return only_chats
+
     def get_by_id(self, chat_id: int):
         if not isinstance(chat_id, int):
             raise ValueError(f"Value {chat_id} must be 'int' type")
@@ -15,6 +21,33 @@ class ChatRepo(BaseCrudRepo):
         chat = Chat.query.filter_by(id=chat_id).first()
 
         return chat
+
+    # def get_by_user_ids(self, user_ids: list):
+    #     # if not isinstance(user1_id, int):
+    #     #     raise ValueError(f"Value {user1_id} must be 'int' type")
+    #     # if not isinstance(user2_id, int):
+    #     #     raise ValueError(f"Value {user2_id} must be 'int' type")
+    #
+    #     # chat = Chat.query.filter_by(
+    #     #     (len(Chat.users) == 2)
+    #     #     and
+    #     #     (Chat.users[0].id == user1_id or Chat.users[1].id == user2_id)
+    #     #     and
+    #     #     (Chat.users[0].id == user2_id or Chat.users[1].id == user1_id)
+    #     # ).first()
+    #
+    #     subquery = (
+    #         db.session.query(user_chat.c.chat_id)
+    #         .filter(user_chat.c.user_id.in_(user_ids))  # Filter user IDs
+    #         .group_by(user_chat.c.chat_id)
+    #         .having(func.count(user_chat.c.user_id) == len(user_ids))  # Match exact count
+    #         .subquery()
+    #     )
+    #
+    #     # Query chats that match the subquery
+    #     chat = db.session.query(Chat).filter(Chat.id.in_(subquery)).first()
+    #
+    #     return chat
 
     def create(self, chat: Chat):
         if not isinstance(chat, Chat):
