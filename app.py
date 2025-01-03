@@ -151,9 +151,40 @@ def fill_db():
         chat_id=4
     )
 
+    m6 = Message(
+        text="Hi 3",
+        user_id=2,
+        chat_id=1,
+        send_at=datetime.datetime.strptime('2/1/2025 10:10:10', '%d/%m/%Y %H:%M:%S')
+    )
+
+    m7 = Message(
+        text="Hi 3",
+        user_id=2,
+        chat_id=1,
+        send_at=datetime.datetime.strptime('1/1/2025 10:10:10', '%d/%m/%Y %H:%M:%S')
+    )
+    m8 = Message(
+        text="Hi 3",
+        user_id=2,
+        chat_id=1,
+        send_at=datetime.datetime.strptime('31/12/2024 10:10:10', '%d/%m/%Y %H:%M:%S')
+    )
+    m9 = Message(
+        text="Hi 3sadasdsaddsadasd",
+        user_id=2,
+        chat_id=1,
+        send_at=datetime.datetime.strptime('1/1/2025 10:11:12', '%d/%m/%Y %H:%M:%S')
+    )
+
+
+
+
+
+
     db.session.add_all([chat1, chat2, chat3])
     db.session.add_all([group1])
-    db.session.add_all([m1, m2, m3, m4, m5])
+    db.session.add_all([m1, m2, m3, m4, m5, m6, m7, m8, m9])
     db.session.add_all([file1, file2])
     db.session.commit()
 

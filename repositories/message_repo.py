@@ -24,8 +24,24 @@ class MessageRepo(BaseCrudRepo):
         if not isinstance(offset, int):
             raise ValueError(f"Value {offset} must be 'int' type")
 
+        # if offset:
         messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.send_at.desc())\
             .limit(limit).offset(offset).all()
+        # else:
+        #     messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.send_at.desc())\
+        #         .limit(limit).all()
+
+        return messages
+
+    def get_by_chat_id1(self, chat_id: int):
+        if not isinstance(chat_id, int):
+            raise ValueError(f"Value {chat_id} must be 'int' type")
+
+        # if offset:
+        messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.send_at.desc()).all()
+        # else:
+        #     messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.send_at.desc())\
+        #         .limit(limit).all()
 
         return messages
 

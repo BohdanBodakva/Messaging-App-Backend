@@ -161,9 +161,11 @@ def load_chat_history(data):
         offset = int(data.get('offset'))
 
         messages = message_repo.get_by_chat_id(chat_id=chat_id, limit=items_count, offset=offset)
-        print("g:", type(messages[0].send_at))
+
         messages.sort(key=lambda msg: msg.send_at)
         messages = [msg.serialize() for msg in messages]
+
+        is_end = len(messages) < items_count
 
         print("chat_id:", chat_id, "messages:", messages)
 
@@ -171,7 +173,8 @@ def load_chat_history(data):
             "load_chat_history",
             {
                 "chat_id": chat_id,
-                "chat_history": messages
+                "chat_history": messages,
+                "is_end": is_end
             },
             to=request.sid
         )
@@ -183,6 +186,41 @@ def load_chat_history(data):
             },
             to=request.sid
         )
+
+
+# @socketio.on("add_chat_history")
+# def add_chat_history(data):
+#     try:
+#         chat_id = int(data.get('chat_id'))
+#         items_count = int(data.get('items_count'))
+#         offset = int(data.get('offset'))
+#
+#         messages = message_repo.get_by_chat_id(chat_id=chat_id, limit=items_count, offset=offset)
+#         print("g:", type(messages[0].send_at))
+#         messages.sort(key=lambda msg: msg.send_at)
+#         messages = [msg.serialize() for msg in messages]
+#
+#         is_end = len(messages) < limit
+#
+#         print("chat_id:", chat_id, "messages:", messages)
+#
+#         emit(
+#             "add_chat_history",
+#             {
+#                 "chat_id": chat_id,
+#                 "chat_history": messages,
+#                 "is_end": is_end
+#             },
+#             to=request.sid
+#         )
+#     except Exception as e:
+#         emit(
+#             "add_chat_history_error",
+#             {
+#                 "error": repr(e)
+#             },
+#             to=request.sid
+#         )
 
 
 # @socketio.on("disconnect")
@@ -259,6 +297,24 @@ def send_message(data):
             },
             to=room
         )
+
+
+@socketio.on("delete_message")
+def delete_message(data):
+    message_id = int(data.get("message_id"))
+    room = int(data.get("room"))
+
+    message_repo.delete(message_id)
+
+    emit(
+        "delete_message",
+        {
+            "message_id": message_id,
+            "chat_id": room,
+            "status": "Deleted"
+        },
+        to=room
+    )
 
 # ================================================================================================================
 
