@@ -52,7 +52,7 @@ class User(db.Model):
     def serialize_id(self):
         return {"id": self.id}
 
-    def serialize(self, include_chats=False, include_messages=False):
+    def serialize(self, include_chats=False, include_last_message=True, include_messages=False):
         user = {
             "id": self.id,
             "username": self.username,
@@ -62,7 +62,11 @@ class User(db.Model):
             "last_seen": self.last_seen.isoformat() if self.last_seen else None
         }
         if include_chats:
-            user["chats"] = [chat.serialize(include_messages=include_messages) for chat in self.chats]
+            user["chats"] = [
+                chat.serialize(
+                    include_last_message=include_last_message, include_messages=include_messages
+                ) for chat in self.chats
+            ]
 
         return user
 
@@ -145,7 +149,7 @@ class Chat(db.Model):
     def __repr__(self):
         return f"<Chat {self.id}>"
 
-    def serialize(self, include_messages=False):
+    def serialize(self, include_last_message=True, include_messages=False):
         chat = {
             "id": self.id,
             "name": self.name,
@@ -155,7 +159,12 @@ class Chat(db.Model):
             "admin": self.admin_id,
             "users": [user.serialize(include_chats=False) for user in self.users]
         }
-        if include_messages:
+        if include_last_message:
+            last_message = Message.query.filter_by(chat_id=self.id).order_by(Message.id.desc()).first()
+
+            chat["messages"] = [last_message.serialize()] if last_message else []
+
+        elif include_messages:
             chat["messages"] = [message.serialize() for message in self.messages]
 
         return chat

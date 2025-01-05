@@ -118,6 +118,9 @@ def load_user(data):
         user_to_load = user.serialize(include_chats=True)
         user_to_inform_update = user.serialize()
 
+        # for idx, c in enumerate(user_to_load.chats):
+        #     user.chats[idx]["messages"] = message_repo.get_last_message_by_chat_id(c.id)
+
         if user:
             emit(
                 "load_user",
@@ -126,15 +129,6 @@ def load_user(data):
                     "user": user_to_load
                 },
                 to=request.sid
-            )
-            emit(
-                "user_updated",
-                {
-                    "msg": "User updated",
-                    "user": user_to_inform_update
-                },
-                broadcast=True,
-                include_self=False
             )
         else:
             emit(
@@ -295,8 +289,8 @@ def create_chat(data):
     chats_by_is_group = chat_repo.get_chats_by_is_group(is_group=is_group)
 
     def do_filter(c):
-        user_ids = [u.id for u in c.users]
-        return (current_user_id in user_ids) and (user_id in user_ids)
+        user_ids_list = [u.id for u in c.users]
+        return (current_user_id in user_ids_list) and (user_ids[0] in user_ids_list)
 
     if is_group:
         filtered_chats = None

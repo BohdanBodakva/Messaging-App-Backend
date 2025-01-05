@@ -1,9 +1,5 @@
-from sqlalchemy import func
-
 from repositories.base_repo import BaseCrudRepo
-from models.db_models import db, Chat, user_chat
-from datetime import datetime
-
+from models.db_models import db, Chat
 
 class ChatRepo(BaseCrudRepo):
     def get_all(self):

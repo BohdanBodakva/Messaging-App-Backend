@@ -1,6 +1,5 @@
 from repositories.base_repo import BaseCrudRepo
 from models.db_models import db, Message
-from datetime import datetime
 
 
 class MessageRepo(BaseCrudRepo):
@@ -13,6 +12,14 @@ class MessageRepo(BaseCrudRepo):
             raise ValueError(f"Value {message_id} must be 'int' type")
 
         message = Message.query.filter_by(id=message_id).first()
+
+        return message
+
+    def get_last_message_by_chat_id(self, chat_id: int):
+        if not isinstance(chat_id, int):
+            raise ValueError(f"Value {chat_id} must be 'int' type")
+
+        message = Message.query.filter_by(chat_id=chat_id).order_by(Message.id.desc()).first()
 
         return message
 
