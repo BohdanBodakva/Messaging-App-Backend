@@ -1,5 +1,5 @@
 from repositories.base_repo import BaseCrudRepo
-from models.db_models import db, Message
+from models.db_models import db, Message, unread_messages, Chat
 
 
 class MessageRepo(BaseCrudRepo):
@@ -117,6 +117,28 @@ class MessageRepo(BaseCrudRepo):
 
         try:
             db.session.delete(message_to_delete)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
+
+    def delete_unread_messages(self, user_id, chat_id):
+        if not isinstance(user_id, int):
+            raise ValueError(f"Value {user_id} must be 'int' type")
+        if not isinstance(chat_id, int):
+            raise ValueError(f"Value {chat_id} must be 'int' type")
+
+        chat = Chat.query.filter_by(id=chat_id).first()
+        chat_messages_ids = [m.id for m in chat.messages]
+
+        try:
+            db.session.execute(
+                unread_messages.delete().where(
+                    unread_messages.c.user_id == user_id and
+                    unread_messages.c.message_id in chat_messages_ids
+                )
+            )
+
             db.session.commit()
         except Exception as e:
             db.session.rollback()

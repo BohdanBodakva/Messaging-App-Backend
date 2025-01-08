@@ -1,5 +1,5 @@
 from repositories.base_repo import BaseCrudRepo
-from models.db_models import db, User, Chat
+from models.db_models import db, User, Chat, unread_messages
 from datetime import datetime
 
 

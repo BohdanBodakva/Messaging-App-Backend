@@ -59,7 +59,8 @@ class User(db.Model):
             "name": self.name,
             "surname": self.surname,
             "profile_photo_link": self.profile_photo_link,
-            "last_seen": self.last_seen.isoformat() if self.last_seen else None
+            "last_seen": self.last_seen.isoformat() if self.last_seen else None,
+            "unread_messages": [message.serialize() for message in self.unread_messages]
         }
         if include_chats:
             user["chats"] = [

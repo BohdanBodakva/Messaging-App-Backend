@@ -115,11 +115,15 @@ def load_user(data):
 
         user = user_repo.get_by_id(user_id)
 
-        user_to_load = user.serialize(include_chats=True)
-        user_to_inform_update = user.serialize()
+        def sort_chats(c):
+            if c.messages:
+                return message_repo.get_last_message_by_chat_id(c.id).send_at
+            else:
+                return datetime(1990, 1, 1)
 
-        # for idx, c in enumerate(user_to_load.chats):
-        #     user.chats[idx]["messages"] = message_repo.get_last_message_by_chat_id(c.id)
+        user.chats.sort(reverse=True, key=sort_chats)
+
+        user_to_load = user.serialize(include_chats=True)
 
         if user:
             emit(
@@ -181,7 +185,32 @@ def load_chat_history(data):
         )
 
 
+@socketio.on("read_chat_history")
+def load_chat_history(data):
+    # try:
+    chat_id = int(data.get('chat_id'))
+    user_id = int(data.get('user_id'))
 
+    message_repo.delete_unread_messages(user_id, chat_id)
+
+    # emit(
+    #     "load_chat_history",
+    #     {
+    #         "chat_id": chat_id,
+    #         "chat_history": messages,
+    #         "is_end": is_end
+    #     },
+    #     to=request.sid
+    # )
+    # except Exception as e:
+    # emit(
+    #     "load_chat_history_error",
+    #     {
+    #         "error": repr(e)
+    #     },
+    #     to=request.sid
+    # )
+    # print(repr(e))
 
 
 # === ROOMS ===
@@ -233,11 +262,14 @@ def send_message(data):
                     file_link=file_link
                 ))
 
+    users_that_unread = user_repo.get_by_chat_id(room)
+    users_that_unread = [u for u in users_that_unread if u.id != user_id]
+
     message = Message(
         text=text,
         send_at=send_at if send_at else datetime.now(),
         sent_files=sent_files_list,
-        users_that_unread=user_repo.get_by_chat_id(room),
+        users_that_unread=users_that_unread,
         user_id=user_id,
         chat_id=room
     )
@@ -271,8 +303,6 @@ def delete_message(data):
         },
         to=room
     )
-
-
 
 
 @socketio.on("create_chat")
@@ -327,7 +357,6 @@ def create_chat(data):
         },
         broadcast=True
     )
-
 
 # ================================================================================================================
 
