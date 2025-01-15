@@ -358,123 +358,37 @@ def create_chat(data):
         broadcast=True
     )
 
-# ================================================================================================================
 
-# @socketio.on("b")
-# def connect(data):
-#     emit("b", {"data": "data"},
-#          # to=request.sid,
-#          broadcast=True)
-#     # print(1111111111111)
-#
-#
-# @socketio.on("get_user_data", namespace=namespace)
-# def go_online(data):
-#     try:
-#         user_id = int(data.user.id)
-#
-#         user = user_repo.get_by_id(user_id)
-#
-#         if user:
-#             emit(
-#                 "get_user_data",
-#                 {
-#                     "user": user.serialize(include_chats=True)
-#                 },
-#                 namespace=namespace,
-#                 to=request.sid
-#             )
-#     except Exception as e:
-#         emit_error(
-#             "get_current_user_data_error",
-#             repr(e),
-#             name_space=namespace,
-#             to=request.sid
-#         )
-#
-#
-# @socketio.on("change_status", namespace=namespace)
-# def go_online(data):
-#     try:
-#         user_id = int(data.user.id)
-#         is_online = bool(data.is_online)
-#
-#         if is_online:
-#             user_repo.update_last_seen_by_id(user_id)
-#         else:
-#             user_repo.update_last_seen_by_id(user_id, datetime.now())
-#
-#         emit(
-#             "user_status_updated",
-#             {
-#                 "user_id": user_id,
-#                 "status": is_online
-#             },
-#             namespace=namespace,
-#             broadcast=True
-#         )
-#     except Exception as e:
-#         emit_error(
-#             "change_status_error",
-#             repr(e),
-#             name_space=namespace,
-#             to=request.sid
-#         )
-#
-#
-# @socketio.on("change_user_info", namespace=namespace)
-# def go_online(data):
-#     try:
-#         user_id = int(data.user.id)
-#         new_user = data.new_user
-#
-#         updated_user = user_repo.update(user_id, new_user)
-#
-#         emit(
-#             "change_user_info",
-#             updated_user.serialize(),
-#             namespace=namespace,
-#             broadcast=True
-#         )
-#     except Exception as e:
-#         emit_error(
-#             "change_user_info_error",
-#             repr(e),
-#             name_space=namespace,
-#             to=request.sid
-#         )
-#
-#
-# # Namespace "/rooms"
-# namespace = "/rooms"
-#
-#
-#
-#
-#
-# @socketio.on("message")
-# def handle_message(data):
-#     user_id = data.get("user_id")
-#     message = data.get("message")
-#     room = data.get("room")
-#
-#     print("message:", message)
-#
-#     if room in rooms():
-#         emit(
-#             "message",
-#             {
-#                 "user_id": user_id,
-#                 "message": message,
-#                 "room": room
-#             },
-#             to=room
-#         )
-#
-#     message_repo.create(
-#         Message(
-#             text=message,
-#             user_id=user_id,
-#             chat_id=room
-#         )
-#     )
+@socketio.on("delete_chat")
+def create_chat(data):
+    chat_id = int(data.get("chat_id"))
+
+    chat_repo.delete(chat_id)
+
+    emit(
+        "delete_chat",
+        {
+            "chat_id": chat_id
+        },
+        broadcast=True
+    )
+
+
+@socketio.on("remove_user_from_chat")
+def create_chat(data):
+    chat_id = int(data.get("chat_id"))
+    user_id = int(data.get("user_id"))
+
+    chat_repo.delete(chat_id)
+
+    emit(
+        "remove_user_from_chat",
+        {
+            "chat_id": chat_id
+        },
+        broadcast=True
+    )
+
+
+
+
