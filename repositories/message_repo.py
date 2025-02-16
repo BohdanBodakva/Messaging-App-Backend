@@ -32,7 +32,7 @@ class MessageRepo(BaseCrudRepo):
             raise ValueError(f"Value {offset} must be 'int' type")
 
         # if offset:
-        messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.send_at.desc())\
+        messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.send_at.desc()) \
             .limit(limit).offset(offset).all()
         # else:
         #     messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.send_at.desc())\

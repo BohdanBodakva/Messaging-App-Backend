@@ -1,8 +1,6 @@
 from functools import wraps
 from flask import request, make_response
 from flask_jwt_extended import decode_token
-from flask_jwt_extended.exceptions import JWTDecodeError
-from jwt import ExpiredSignatureError
 
 
 def _build_cors_preflight_response():

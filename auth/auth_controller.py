@@ -1,3 +1,5 @@
+import time
+
 from flask import request, Blueprint
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager
 from repositories.user_repo import user_repo
@@ -12,6 +14,8 @@ jwt = JWTManager()
 @auth_bp.route('/login', methods=['POST'])
 def login():
     request_body = request.get_json()
+
+    print(request_body)
 
     if request_body:
         username = request_body.get('username')

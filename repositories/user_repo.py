@@ -32,6 +32,52 @@ class UserRepo(BaseCrudRepo):
 
         return user
 
+    def get_all_by_username(self, user_username: str):
+        if not isinstance(user_username, str):
+            raise ValueError(f"Value {user_username} must be 'str' type")
+
+        users = list(User.query.filter_by(username=user_username))
+
+        return users
+
+    def go_online(self, user_id: int):
+        if not isinstance(user_id, int):
+            raise ValueError(f"Value {user_id} must be 'int' type")
+
+        user_to_update = User.query.filter_by(id=user_id).first()
+        if user_to_update is None:
+            raise ValueError(f"User with id={user_id} doesn't exist")
+
+        # update params
+        user_to_update.status = None
+
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
+
+        return user_to_update
+
+    def go_offline(self, user_id: int, datetime: datetime):
+        if not isinstance(user_id, int):
+            raise ValueError(f"Value {user_id} must be 'int' type")
+
+        user_to_update = User.query.filter_by(id=user_id).first()
+        if user_to_update is None:
+            raise ValueError(f"User with id={user_id} doesn't exist")
+
+        # update params
+        user_to_update.status = datetime
+
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
+
+        return user_to_update
+
     def create(self, user: User):
         if not isinstance(user, User):
             raise ValueError(f"Value {user} must be 'User' type")
@@ -62,8 +108,7 @@ class UserRepo(BaseCrudRepo):
             user_to_update.profile_photo_link = new_user.profile_photo_link
         if new_user.name:
             user_to_update.name = new_user.name
-        if new_user.surname:
-            user_to_update.surname = new_user.surname
+        user_to_update.surname = new_user.surname if new_user.surname else ""
 
         try:
             db.session.commit()
@@ -71,7 +116,9 @@ class UserRepo(BaseCrudRepo):
             db.session.rollback()
             raise e
 
-        return user_to_update
+        updated_user = self.get_by_id(user_id)
+
+        return updated_user
 
     def update_last_seen_by_id(self, user_id: int, new_last_seen: datetime = None):
         if not isinstance(user_id, int):

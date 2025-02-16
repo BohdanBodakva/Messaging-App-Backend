@@ -1,0 +1,30 @@
+version: '3.11'
+services:
+  react-app:
+    build:
+      context: ../messaging-app-frontend/
+    ports:
+      - "3000:3000"
+    networks:
+      - my-app-network
+
+  flask-app:
+    build: .
+    ports:
+      - "5000:5000"
+    networks:
+      - my-app-network
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: messaging_app_db
+    ports:
+      - "5432:5432"
+    networks:
+      - my-app-network
+
+networks:
+  my-app-network:

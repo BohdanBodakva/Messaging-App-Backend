@@ -1,5 +1,6 @@
 from repositories.base_repo import BaseCrudRepo
-from models.db_models import db, Chat
+from models.db_models import db, Chat, Message
+
 
 class ChatRepo(BaseCrudRepo):
     def get_all(self):
@@ -48,6 +49,16 @@ class ChatRepo(BaseCrudRepo):
     def create(self, chat: Chat):
         if not isinstance(chat, Chat):
             raise ValueError(f"Value {chat} must be 'Chat' type")
+
+        # save hidden message in empty chat to track chat creation date while sorting chats
+        # if not chat.messages and len(chat.users) >= 2:
+        #     hidden_message = Message(
+        #         text="",
+        #         hidden=True,
+        #         user_id=chat.users[0],
+        #         chat_id=chat.users[1],
+        #     )
+        #     chat.messages = [hidden_message]
 
         try:
             db.session.add(chat)

@@ -12,24 +12,7 @@ from repositories.user_repo import user_repo
 socketio = SocketIO()
 
 
-def emit_error(event, error_message, name_space=None, room=None, to=None):
-    error_json = {"error": error_message}
-
-    if name_space and room:
-        emit(event, error_json, namespace=name_space, room=room)
-    elif name_space:
-        emit(event, error_json, namespace=name_space)
-    elif room:
-        emit(event, error_json, room=room)
-    elif to:
-        emit(event, error_json, to=to)
-    else:
-        emit(event, error_json)
-
-
-# Namespace "/public"
-namespace = "/public"
-
+# === TOKEN ===
 
 @socketio.on("validate_token")
 def connect(data):
@@ -37,7 +20,13 @@ def connect(data):
 
     try:
         if not access_token:
-            raise Exception("access_token is missing")
+            emit(
+                "validate_token_error",
+                {
+                    "error": "access_token is missing in request"
+                },
+                to=request.sid
+            )
 
         decoded_token = validate_access_token(access_token)
         user_id = int(decoded_token.get("sub"))
@@ -45,7 +34,7 @@ def connect(data):
             emit(
                 "validate_token",
                 {
-                    "msg": "Connected successfully",
+                    "msg": "access_token validation is successful",
                     "user_id": user_id
                 },
                 to=request.sid
@@ -54,8 +43,7 @@ def connect(data):
             emit(
                 "validate_token_error",
                 {
-                    "msg": f"Incorrect data",
-                    "error": ""
+                    "error": "access_token is expired or incorrect"
                 },
                 to=request.sid
             )
@@ -63,69 +51,31 @@ def connect(data):
         emit(
             "validate_token_error",
             {
-                "msg": f"Error while validating",
                 "error": repr(e)
             },
             to=request.sid
         )
 
 
-@socketio.on("validate_refreshed_token")
-def connect(data):
-    access_token = data.get('access_token')
-
-    try:
-        if not access_token:
-            raise Exception("access_token is missing")
-
-        decoded_token = validate_access_token(access_token)
-        user_id = int(decoded_token.get("sub"))
-        if decoded_token and user_id:
-            emit(
-                "validate_refreshed_token",
-                {
-                    "msg": "Validated successfully",
-                    "user_id": user_id
-                },
-                to=request.sid
-            )
-        else:
-            emit(
-                "validate_refreshed_token_error",
-                {
-                    "msg": f"Incorrect data"
-                },
-                to=request.sid
-            )
-    except Exception as e:
-        emit(
-            "validate_refreshed_token_error",
-            {
-                "msg": repr(e)
-            },
-            to=request.sid
-        )
-
+# === USER ===
 
 @socketio.on("load_user")
 def load_user(data):
     try:
         user_id = int(data.get('user_id'))
-        user_repo.update_last_seen_by_id(user_id=user_id, new_last_seen=None)
-
         user = user_repo.get_by_id(user_id)
 
-        def sort_chats(c):
-            if c.messages:
-                return message_repo.get_last_message_by_chat_id(c.id).send_at
-            else:
-                return datetime(1990, 1, 1)
-
-        user.chats.sort(reverse=True, key=sort_chats)
-
-        user_to_load = user.serialize(include_chats=True)
-
         if user:
+            def sort_chats(c):
+                if c.messages:
+                    return message_repo.get_last_message_by_chat_id(c.id).send_at
+                else:
+                    return c.created_at
+
+            user.chats.sort(reverse=True, key=sort_chats)
+
+            user_to_load = user.serialize(include_chats=True)
+
             emit(
                 "load_user",
                 {
@@ -138,7 +88,7 @@ def load_user(data):
             emit(
                 "load_user_error",
                 {
-                    "msg": f"User with id={user_id} doesn't exist"
+                    "error": f"User with id={user_id} doesn't exist"
                 },
                 to=request.sid
             )
@@ -151,6 +101,209 @@ def load_user(data):
             to=request.sid
         )
 
+
+@socketio.on("load_user_chats")
+def load_user_chats(data):
+    try:
+        user_id = int(data.get('user_id'))
+        user = user_repo.get_by_id(user_id)
+
+        if user:
+            def sort_chats(c):
+                if c.messages:
+                    return message_repo.get_last_message_by_chat_id(c.id).send_at
+                else:
+                    return datetime(1990, 1, 1)
+
+            user.chats.sort(reverse=True, key=sort_chats)
+
+            user_chats = [chat.serialize() for chat in user.chats]
+
+            print(user_chats)
+            emit(
+                "load_user_chats",
+                {
+                    "msg": "Success",
+                    "user_chats": user_chats
+                },
+                to=request.sid
+            )
+        else:
+            emit(
+                "load_user_chats_error",
+                {
+                    "error": f"User with id={user_id} doesn't exist"
+                },
+                to=request.sid
+            )
+    except Exception as e:
+        print(repr(e))
+        emit(
+            "load_user_chats_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
+@socketio.on("change_user_info")
+def change_user_info(data):
+    try:
+        user_id = int(data.get('user_id'))
+        user = user_repo.get_by_id(user_id)
+
+        new_name = data.get("new_name")
+        new_surname = data.get("new_surname")
+        new_username = data.get("new_username")
+        new_profile_photo_link = data.get("new_profile_photo_link")
+
+        if user.username != new_username:
+            is_username_unique = len(user_repo.get_all_by_username(new_username)) == 0
+            if not is_username_unique:
+                emit(
+                    "change_user_info_username_exists",
+                    {
+                        "msg": f"Username={new_username} already exists"
+                    },
+                    to=request.sid
+                )
+                return
+
+        if user:
+            new_user = User()
+
+            if new_name:
+                new_user.name = str(new_name)
+            if new_surname:
+                new_user.surname = str(new_surname)
+            if new_username:
+                new_user.username = str(new_username)
+            if new_profile_photo_link:
+                new_user.profile_photo_link = str(new_profile_photo_link)
+
+            updated_user = user_repo.update(user_id=user_id, new_user=new_user)
+            updated_user = updated_user.serialize(
+                include_chats=False,
+                include_last_message=False,
+                include_messages=False,
+                include_unread_messages=False
+            )
+
+            emit(
+                "change_user_info",
+                {
+                    "msg": "Success",
+                    "user": updated_user
+                },
+                to=request.sid
+            )
+            emit(
+                "change_user_info_for_chat_list",
+                {
+                    "msg": "Success",
+                    "changed_user_id": user.id
+                },
+                broadcast=True
+            )
+        else:
+            emit(
+                "change_user_info_error",
+                {
+                    "error": f"User with id={user_id} doesn't exist"
+                },
+                to=request.sid
+            )
+    except Exception as e:
+        emit(
+            "change_user_info_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
+@socketio.on("go_online")
+def go_online(data):
+    try:
+        user_id = int(data.get('user_id'))
+
+        user_repo.go_online(user_id)
+
+        emit(
+            "go_online",
+            {
+                "msg": "Success",
+                "user_id": user_id
+            },
+            broadcast=True
+        )
+    except Exception as e:
+        emit(
+            "go_online_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
+@socketio.on("search_users_by_username")
+def search_users_by_username(data):
+    try:
+        value = str(data.get('username_value'))
+        users = user_repo.get_all()
+
+        serialized_matched_users = [
+            user.serialize(include_last_message=False) for user in users if value in user.username
+        ]
+
+        print(serialized_matched_users)
+
+        emit(
+            "search_users_by_username",
+            {
+                "users": serialized_matched_users
+            },
+            to=request.sid
+        )
+    except Exception as e:
+        emit(
+            "search_users_by_username_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
+@socketio.on("go_offline")
+def go_offline(data):
+    try:
+        user_id = int(data.get('user_id'))
+
+        user_repo.go_offline(user_id)
+
+        emit(
+            "go_offline",
+            {
+                "msg": "Success",
+                "user_id": user_id
+            },
+            broadcast=True
+        )
+    except Exception as e:
+        emit(
+            "go_offline_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
+# === CHAT ===
 
 @socketio.on("load_chat_history")
 def load_chat_history(data):
@@ -187,30 +340,19 @@ def load_chat_history(data):
 
 @socketio.on("read_chat_history")
 def load_chat_history(data):
-    # try:
-    chat_id = int(data.get('chat_id'))
-    user_id = int(data.get('user_id'))
+    try:
+        chat_id = int(data.get('chat_id'))
+        user_id = int(data.get('user_id'))
 
-    message_repo.delete_unread_messages(user_id, chat_id)
-
-    # emit(
-    #     "load_chat_history",
-    #     {
-    #         "chat_id": chat_id,
-    #         "chat_history": messages,
-    #         "is_end": is_end
-    #     },
-    #     to=request.sid
-    # )
-    # except Exception as e:
-    # emit(
-    #     "load_chat_history_error",
-    #     {
-    #         "error": repr(e)
-    #     },
-    #     to=request.sid
-    # )
-    # print(repr(e))
+        message_repo.delete_unread_messages(user_id, chat_id)
+    except Exception as e:
+        emit(
+            "read_chat_history_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
 
 
 # === ROOMS ===
@@ -244,151 +386,217 @@ def on_leave(data):
     )
 
 
+# === MESSAGE ===
+
 @socketio.on("send_message")
 def send_message(data):
-    user_id = data.get("user_id")
-    text = data.get("text")
-    sent_files = data.get("sent_files")
-    send_at = data.get("sent_at")
+    try:
+        user_id = int(data.get("user_id"))
+        text = data.get("text")
+        sent_files = data.get("sent_files")
+        send_at = datetime.fromisoformat(data.get("sent_at").replace("Z", "+00:00"))
 
-    room = int(data.get("room"))
+        room = int(data.get("room"))
 
-    sent_files_list = []
-    if sent_files:
-        for file in sent_files:
-            file_link = file.get("file_link")
-            if file_link:
-                sent_files_list.append(SentFile(
-                    file_link=file_link
-                ))
+        sent_files_list = []
+        if sent_files:
+            for file in sent_files:
+                file_link = file.get("file_link")
+                if file_link:
+                    sent_files_list.append(SentFile(
+                        file_link=file_link
+                    ))
 
-    users_that_unread = user_repo.get_by_chat_id(room)
-    users_that_unread = [u for u in users_that_unread if u.id != user_id]
+        users_that_unread = user_repo.get_by_chat_id(room)
+        users_that_unread = [u for u in users_that_unread if u.id != user_id]
 
-    message = Message(
-        text=text,
-        send_at=send_at if send_at else datetime.now(),
-        sent_files=sent_files_list,
-        users_that_unread=users_that_unread,
-        user_id=user_id,
-        chat_id=room
-    )
+        message = Message(
+            text=text,
+            send_at=send_at if send_at else datetime.now(),
+            sent_files=sent_files_list,
+            users_that_unread=users_that_unread,
+            user_id=user_id,
+            chat_id=room
+        )
 
-    message.id = message_repo.create(message)
+        message.id = message_repo.create(message)
 
-    if room in rooms():
+        if room in rooms():
+            emit(
+                "send_message",
+                {
+                    "message": message.serialize(include_files=True),
+                    "room": room
+                },
+                to=room
+            )
+            emit(
+                "send_message_chat_list",
+                {
+                    "message": message.serialize(include_files=True),
+                    "room": room
+                },
+                to=room
+            )
+    except Exception as e:
         emit(
-            "send_message",
+            "send_message_error",
             {
-                "message": message.serialize(include_files=True),
-                "room": room
+                "error": repr(e)
             },
-            to=room
+            to=request.sid
         )
 
 
 @socketio.on("delete_message")
 def delete_message(data):
-    message_id = int(data.get("message_id"))
-    room = int(data.get("room"))
+    try:
+        message_id = int(data.get("message_id"))
+        room = int(data.get("room"))
 
-    message_repo.delete(message_id)
+        message_repo.delete(message_id)
 
-    emit(
-        "delete_message",
-        {
-            "message_id": message_id,
-            "chat_id": room,
-            "status": "Deleted"
-        },
-        to=room
-    )
+        last_chat_message = message_repo.get_last_message_by_chat_id(chat_id=room)
+        if last_chat_message:
+            last_chat_message = last_chat_message.serialize(include_files=False)
+
+        emit(
+            "delete_message",
+            {
+                "message_id": message_id,
+                "chat_id": room,
+                "status": "Deleted"
+            },
+            to=room
+        )
+        emit(
+            "delete_message_chat_list",
+            {
+                "message_id": message_id,
+                "chat_id": room,
+                "last_chat_message": last_chat_message,
+                "status": "Deleted"
+            },
+            to=room
+        )
+    except Exception as e:
+        emit(
+            "delete_message_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
 
 
 @socketio.on("create_chat")
 def create_chat(data):
-    current_user_id = int(data.get("current_user_id"))
-    user_ids = list(data.get("user_ids"))
-    is_group = bool(data.get("is_group"))
-    created_at = data.get("created_at")
-    name = data.get("name")
-    chat_photo_link = data.get("chat_photo_link")
+    try:
+        current_user_id = int(data.get("current_user_id"))
+        user_ids = list(data.get("user_ids"))
+        is_group = bool(data.get("is_group"))
+        created_at = datetime.fromisoformat(data.get("created_at").replace("Z", "+00:00"))
+        name = data.get("name")
+        chat_photo_link = data.get("chat_photo_link")
 
-    users = [user_repo.get_by_id(u_id) for u_id in user_ids]
+        users = [user_repo.get_by_id(u_id) for u_id in user_ids]
 
-    chats_by_is_group = chat_repo.get_chats_by_is_group(is_group=is_group)
+        chats_by_is_group = chat_repo.get_chats_by_is_group(is_group=is_group)
 
-    def do_filter(c):
-        user_ids_list = [u.id for u in c.users]
-        return (current_user_id in user_ids_list) and (user_ids[0] in user_ids_list)
+        def do_filter(c):
+            user_ids_list = [u.id for u in c.users]
+            return (current_user_id in user_ids_list) and (user_ids[0] in user_ids_list)
 
-    if is_group:
-        filtered_chats = None
-    else:
-        filtered_chats = list(filter(lambda c: do_filter(c), chats_by_is_group))
+        if is_group:
+            filtered_chats = None
+        else:
+            filtered_chats = list(filter(lambda c: do_filter(c), chats_by_is_group))
 
-    chat = None
-    if not filtered_chats:
-        current_user = user_repo.get_by_id(current_user_id)
+        chat = None
+        if not filtered_chats:
+            current_user = user_repo.get_by_id(current_user_id)
 
-        if current_user and users:
-            new_chat = Chat(
-                name=name if (is_group and name) else None,
-                admin_id=current_user_id if is_group else None,
-                chat_photo_link=chat_photo_link if (is_group and chat_photo_link) else None,
-                created_at=created_at,
-                is_group=is_group,
-                users=[current_user, *users]
-            )
+            if current_user and users:
+                new_chat = Chat(
+                    name=name if (is_group and name) else None,
+                    admin_id=current_user_id if is_group else None,
+                    chat_photo_link=chat_photo_link if (is_group and chat_photo_link) else None,
+                    created_at=created_at,
+                    is_group=is_group,
+                    users=[current_user, *users]
+                )
 
-            new_chat_id = chat_repo.create(new_chat)
+                new_chat_id = chat_repo.create(new_chat)
 
-            chat = new_chat
-            chat.id = new_chat_id
-    else:
-        chat = filtered_chats[0]
+                chat = new_chat
+                chat.id = new_chat_id
+        else:
+            chat = filtered_chats[0]
 
-    emit(
-        "create_chat",
-        {
-            "current_user_id": current_user_id,
-            "chat": chat.serialize(),
-            "users": [u.serialize() for u in users]
-        },
-        broadcast=True
-    )
+        emit(
+            "create_chat",
+            {
+                "current_user_id": current_user_id,
+                "chat": chat.serialize(),
+                "users": [u.serialize() for u in users]
+            },
+            broadcast=True
+        )
+    except Exception as e:
+        print(repr(e))
+        emit(
+            "create_chat_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
 
 
 @socketio.on("delete_chat")
 def create_chat(data):
-    chat_id = int(data.get("chat_id"))
+    try:
+        chat_id = int(data.get("chat_id"))
 
-    chat_repo.delete(chat_id)
+        chat_repo.delete(chat_id)
 
-    emit(
-        "delete_chat",
-        {
-            "chat_id": chat_id
-        },
-        broadcast=True
-    )
+        emit(
+            "delete_chat",
+            {
+                "chat_id": chat_id
+            },
+            broadcast=True
+        )
+    except Exception as e:
+        emit(
+            "delete_chat_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
 
 
 @socketio.on("remove_user_from_chat")
 def create_chat(data):
-    chat_id = int(data.get("chat_id"))
-    user_id = int(data.get("user_id"))
+    try:
+        chat_id = int(data.get("chat_id"))
+        user_id = int(data.get("user_id"))
 
-    chat_repo.delete(chat_id)
+        chat_repo.delete(chat_id)
 
-    emit(
-        "remove_user_from_chat",
-        {
-            "chat_id": chat_id
-        },
-        broadcast=True
-    )
-
-
-
-
+        emit(
+            "remove_user_from_chat",
+            {
+                "chat_id": chat_id
+            },
+            broadcast=True
+        )
+    except Exception as e:
+        emit(
+            "remove_user_from_chat_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )

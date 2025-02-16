@@ -30,9 +30,9 @@ class User(db.Model):
     username = db.Column(db.String(100), unique=True, nullable=False)
     profile_photo_link = db.Column(db.Text, nullable=False, default="")
     name = db.Column(db.String(100), nullable=False)
-    surname = db.Column(db.String(100))
+    surname = db.Column(db.String(100), nullable=False, default="")
     password = db.Column(db.Text, nullable=False)
-    last_seen = db.Column(db.DateTime)
+    is_online = db.Column(db.Boolean, nullable=False, default=False)
     chats = db.relationship('Chat', secondary=user_chat, back_populates=__tablename__, lazy='joined')
     unread_messages = db.relationship(
         'Message', secondary=unread_messages, back_populates="users_that_unread", lazy='joined'
@@ -46,22 +46,30 @@ class User(db.Model):
             raise ValueError(f"User: {key} cannot be empty string")
         return value
 
+    @validates("surname")
+    def validate_id(self, key, value):
+        if not value:
+            return ""
+        return value
+
     def __repr__(self):
         return f"<User {self.id}: '{self.username}'>"
 
     def serialize_id(self):
         return {"id": self.id}
 
-    def serialize(self, include_chats=False, include_last_message=True, include_messages=False):
+    def serialize(self, include_chats=False, include_last_message=True,
+                  include_messages=False, include_unread_messages=True):
         user = {
             "id": self.id,
             "username": self.username,
             "name": self.name,
             "surname": self.surname,
-            "profile_photo_link": self.profile_photo_link,
-            "last_seen": self.last_seen.isoformat() if self.last_seen else None,
-            "unread_messages": [message.serialize() for message in self.unread_messages]
+            "profile_photo_link": self.profile_photo_link if self.profile_photo_link else None,
+            "is_online": self.is_online
         }
+        if include_unread_messages:
+            user["unread_messages"] = [message.serialize() for message in self.unread_messages]
         if include_chats:
             user["chats"] = [
                 chat.serialize(
@@ -79,6 +87,7 @@ class Message(db.Model):
     text = db.Column(db.Text, nullable=False)
     sent_files = db.relationship('SentFile', backref=__tablename__, lazy='joined')
     send_at = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    hidden = db.Column(db.Boolean, nullable=False, default=False)
     users_that_unread = db.relationship('User', secondary=unread_messages, back_populates="unread_messages", lazy='joined')
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'))
     chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='SET NULL'))
@@ -145,7 +154,7 @@ class Chat(db.Model):
     users = db.relationship('User', secondary=user_chat, back_populates=__tablename__, lazy='joined')
     chat_photo_link = db.Column(db.Text, nullable=True)
     is_group = db.Column(db.Boolean, nullable=False, default=False)
-    messages = db.relationship('Message', backref=__tablename__, lazy='joined')
+    messages = db.relationship('Message', backref=__tablename__, lazy='joined', cascade="all, delete")
 
     def __repr__(self):
         return f"<Chat {self.id}>"

@@ -16,7 +16,8 @@ app = Flask(__name__)
 
 # App database config
 app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql+psycopg2://{env_vars['DB_USER']}:{env_vars['DB_PASSWORD']}" \
-                                        f"@{env_vars['DB_HOSTNAME']}/{env_vars['DB_NAME']}"
+                                        f"@{env_vars['DB_HOSTNAME']}/{env_vars['DB_NAME']}?client_encoding=utf8"
+# app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+psycopg2://postgres:root@localhost:5433/messaging_app_db?client_encoding=utf8"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # App JWT config
@@ -46,13 +47,6 @@ socketio.init_app(
 
 @app.route("/a", methods=["GET"])
 def get_from_db2():
-    user = User.query.filter_by(id=1).first()
-    chat = Chat.query.filter_by(id=1).first()
-
-    user.chats.remove(chat)
-
-    db.session.commit()
-
     return "Yes"
 
 
@@ -77,6 +71,7 @@ def fill_db():
         surname="1",
         username="user_1",
         password=generate_password_hash("1"),
+        is_online=True
     )
     user2 = User(
         name="User",
@@ -122,6 +117,7 @@ def fill_db():
     )
 
     group1 = Chat(
+        name="Group #1",
         users=[user1, user2, user3],
         is_group=True,
         admin_id=1
