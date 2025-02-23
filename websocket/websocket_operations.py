@@ -74,8 +74,9 @@ def load_user(data):
 
             user.chats.sort(reverse=True, key=sort_chats)
 
-            user_to_load = user.serialize(include_chats=True)
 
+            user_to_load = user.serialize(include_chats=True)
+            print(user_to_load)
             emit(
                 "load_user",
                 {
@@ -232,9 +233,10 @@ def go_online(data):
         user_repo.go_online(user_id)
 
         emit(
-            "go_online",
+            "set_status",
             {
                 "msg": "Success",
+                "is_online": True,
                 "user_id": user_id
             },
             broadcast=True
@@ -250,7 +252,10 @@ def go_online(data):
 
 
 @socketio.on("search_users_by_username")
+@socketio.on("search_users_for_group")
 def search_users_by_username(data):
+    event_name = str(request.event['message'])
+
     try:
         value = str(data.get('username_value'))
         users = user_repo.get_all()
@@ -259,10 +264,8 @@ def search_users_by_username(data):
             user.serialize(include_last_message=False) for user in users if value in user.username
         ]
 
-        print(serialized_matched_users)
-
         emit(
-            "search_users_by_username",
+            event_name,
             {
                 "users": serialized_matched_users
             },
@@ -270,7 +273,7 @@ def search_users_by_username(data):
         )
     except Exception as e:
         emit(
-            "search_users_by_username_error",
+            f"{event_name}_error",
             {
                 "error": repr(e)
             },
@@ -286,9 +289,10 @@ def go_offline(data):
         user_repo.go_offline(user_id)
 
         emit(
-            "go_offline",
+            "set_status",
             {
                 "msg": "Success",
+                "is_online": False,
                 "user_id": user_id
             },
             broadcast=True
@@ -420,12 +424,27 @@ def send_message(data):
         )
 
         message.id = message_repo.create(message)
+        message = message.serialize(include_files=True);
+
+        user_that_send = user_repo.get_by_id(user_id)
+        user_that_send = user_that_send.serialize(
+            include_chats=False,
+            include_last_message=False,
+            include_messages=False,
+            include_unread_messages=False
+        )
+
+        chat = chat_repo.get_by_id(room)
+        chat = chat.serialize(
+            include_last_message=False,
+            include_messages=False
+        )
 
         if room in rooms():
             emit(
                 "send_message",
                 {
-                    "message": message.serialize(include_files=True),
+                    "message": message,
                     "room": room
                 },
                 to=room
@@ -433,7 +452,9 @@ def send_message(data):
             emit(
                 "send_message_chat_list",
                 {
-                    "message": message.serialize(include_files=True),
+                    "message": message,
+                    "chat": chat,
+                    "user_that_send": user_that_send,
                     "room": room
                 },
                 to=room
@@ -490,7 +511,10 @@ def delete_message(data):
 
 
 @socketio.on("create_chat")
+@socketio.on("create_group")
 def create_chat(data):
+    event_name = str(request.event['message'])
+
     try:
         current_user_id = int(data.get("current_user_id"))
         user_ids = list(data.get("user_ids"))
@@ -533,19 +557,38 @@ def create_chat(data):
         else:
             chat = filtered_chats[0]
 
-        emit(
-            "create_chat",
-            {
-                "current_user_id": current_user_id,
-                "chat": chat.serialize(),
-                "users": [u.serialize() for u in users]
-            },
-            broadcast=True
-        )
+        if event_name == "create_chat":
+            emit(
+                event_name,
+                {
+                    "current_user_id": current_user_id,
+                    "chat": chat.serialize(),
+                    "users": [u.serialize() for u in users]
+                },
+                broadcast=True
+            )
+        else:
+            emit(
+                event_name,
+                {
+                    "current_user_id": current_user_id,
+                    "chat": chat.serialize(),
+                    "users": [u.serialize() for u in users]
+                },
+                to=request.sid
+            )
+            emit(
+                "create_group_chat_list",
+                {
+                    "current_user_id": current_user_id,
+                    "chat": chat.serialize(),
+                    "users": [u.serialize() for u in users]
+                },
+                broadcast=True
+            )
     except Exception as e:
-        print(repr(e))
         emit(
-            "create_chat_error",
+            f"{event_name}_error",
             {
                 "error": repr(e)
             },
@@ -554,7 +597,7 @@ def create_chat(data):
 
 
 @socketio.on("delete_chat")
-def create_chat(data):
+def delete_chat(data):
     try:
         chat_id = int(data.get("chat_id"))
 
@@ -562,6 +605,13 @@ def create_chat(data):
 
         emit(
             "delete_chat",
+            {
+                "chat_id": chat_id
+            },
+            broadcast=True
+        )
+        emit(
+            "delete_chat_from_chats",
             {
                 "chat_id": chat_id
             },
@@ -577,8 +627,43 @@ def create_chat(data):
         )
 
 
+@socketio.on("leave_group")
+def leave_group(data):
+    try:
+        chat_id = int(data.get("chat_id"))
+        user_id = int(data.get("user_id"))
+        print(f"u: {user_id}, c: {chat_id}")
+
+        chat_repo.remove_user_from_chat(user_id=user_id, chat_id=chat_id)
+
+        emit(
+            "leave_group",
+            {
+                "user_id": user_id,
+                "chat_id": chat_id
+            },
+            broadcast=True
+        )
+        emit(
+            "leave_group_from_chats",
+            {
+                "user_id": user_id,
+                "chat_id": chat_id
+            },
+            to=request.sid
+        )
+    except Exception as e:
+        emit(
+            "leave_group_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
 @socketio.on("remove_user_from_chat")
-def create_chat(data):
+def remove_user_from_chat(data):
     try:
         chat_id = int(data.get("chat_id"))
         user_id = int(data.get("user_id"))

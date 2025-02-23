@@ -166,7 +166,7 @@ class Chat(db.Model):
             "chat_photo_link": self.chat_photo_link,
             "is_group": self.is_group,
             "created_at": self.created_at.isoformat(),
-            "admin": self.admin_id,
+            "admin_id": self.admin_id,
             "users": [user.serialize(include_chats=False) for user in self.users]
         }
         if include_last_message:

@@ -17,7 +17,7 @@ app = Flask(__name__)
 # App database config
 app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql+psycopg2://{env_vars['DB_USER']}:{env_vars['DB_PASSWORD']}" \
                                         f"@{env_vars['DB_HOSTNAME']}/{env_vars['DB_NAME']}?client_encoding=utf8"
-# app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+psycopg2://postgres:root@localhost:5433/messaging_app_db?client_encoding=utf8"
+# app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql+psycopg2://postgre11s:postgres@messaging-app-database.cwvywmmgqrt0.us-east-1.rds.amazonaws.com:5432/messaging_app_db?client_encoding=utf8"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # App JWT config
@@ -109,93 +109,81 @@ def fill_db():
     chat1 = Chat(
         users=[user1, user2]
     )
-    chat2 = Chat(
-        users=[user1, user3]
-    )
-    chat3 = Chat(
-        users=[user2, user3]
-    )
-
-    group1 = Chat(
-        name="Group #1",
-        users=[user1, user2, user3],
-        is_group=True,
-        admin_id=1
-    )
-
-    m1 = Message(
-        text="Hello",
-        user_id=1,
-        chat_id=1,
-        users_that_unread=[user2]
-    )
-    file1 = SentFile(
-        file_link="some-file-link-1",
-        message_id=1
-    )
-    file2 = SentFile(
-        file_link="some-file-link-2",
-        message_id=1
-    )
 
 
-    m2 = Message(
-        text="Hi",
-        user_id=2,
-        chat_id=1
-    )
+    # m1 = Message(
+    #     text="Hello",
+    #     user_id=1,
+    #     chat_id=1,
+    #     users_that_unread=[user2]
+    # )
+    # file1 = SentFile(
+    #     file_link="some-file-link-1",
+    #     message_id=1
+    # )
+    # file2 = SentFile(
+    #     file_link="some-file-link-2",
+    #     message_id=1
+    # )
 
-    m3 = Message(
-        text="hi 1",
-        user_id=1,
-        chat_id=4
-    )
-    m4 = Message(
-        text="Hi 2",
-        user_id=2,
-        chat_id=4
-    )
-    m5 = Message(
-        text="Hi 3",
-        user_id=3,
-        chat_id=4
-    )
 
-    m6 = Message(
-        text="Hi 3",
-        user_id=2,
-        chat_id=1,
-        send_at=datetime.datetime.strptime('2/1/2025 10:10:10', '%d/%m/%Y %H:%M:%S')
-    )
-
-    m7 = Message(
-        text="Hi 3",
-        user_id=2,
-        chat_id=1,
-        send_at=datetime.datetime.strptime('1/1/2025 10:10:10', '%d/%m/%Y %H:%M:%S')
-    )
-    m8 = Message(
-        text="Hi 3",
-        user_id=2,
-        chat_id=1,
-        send_at=datetime.datetime.strptime('31/12/2024 10:10:10', '%d/%m/%Y %H:%M:%S')
-    )
-    m9 = Message(
-        text="Hi 3sadasdsaddsadasd",
-        user_id=2,
-        chat_id=1,
-        send_at=datetime.datetime.strptime('1/1/2025 10:11:12', '%d/%m/%Y %H:%M:%S')
-    )
+    # m2 = Message(
+    #     text="Hi",
+    #     user_id=2,
+    #     chat_id=1
+    # )
+    #
+    # m3 = Message(
+    #     text="hi 1",
+    #     user_id=1,
+    #     chat_id=4
+    # )
+    # m4 = Message(
+    #     text="Hi 2",
+    #     user_id=2,
+    #     chat_id=4
+    # )
+    # m5 = Message(
+    #     text="Hi 3",
+    #     user_id=3,
+    #     chat_id=4
+    # )
+    #
+    # m6 = Message(
+    #     text="Hi 3",
+    #     user_id=2,
+    #     chat_id=1,
+    #     send_at=datetime.datetime.strptime('2/1/2025 10:10:10', '%d/%m/%Y %H:%M:%S')
+    # )
+    #
+    # m7 = Message(
+    #     text="Hi 3",
+    #     user_id=2,
+    #     chat_id=1,
+    #     send_at=datetime.datetime.strptime('1/1/2025 10:10:10', '%d/%m/%Y %H:%M:%S')
+    # )
+    # m8 = Message(
+    #     text="Hi 3",
+    #     user_id=2,
+    #     chat_id=1,
+    #     send_at=datetime.datetime.strptime('31/12/2024 10:10:10', '%d/%m/%Y %H:%M:%S')
+    # )
+    # m9 = Message(
+    #     text="Hi 3sadasdsaddsadasd",
+    #     user_id=2,
+    #     chat_id=1,
+    #     send_at=datetime.datetime.strptime('1/1/2025 10:11:12', '%d/%m/%Y %H:%M:%S')
+    # )
 
 
 
 
 
 
-    db.session.add_all([chat1, chat2, chat3])
-    db.session.add_all([group1])
-    db.session.add_all([m1, m2, m3, m4, m5, m6, m7, m8, m9])
-    db.session.add_all([file1, file2])
+    db.session.add_all([chat1])
+    # db.session.add_all([group1])
+    # db.session.add_all([m2, m3, m4, m5, m6, m7, m8, m9])
+    # db.session.add_all([file1, file2])
     db.session.commit()
 
     return "Success"

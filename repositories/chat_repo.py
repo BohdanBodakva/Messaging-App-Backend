@@ -1,5 +1,6 @@
 from repositories.base_repo import BaseCrudRepo
-from models.db_models import db, Chat, Message
+from models.db_models import db, Chat, Message, user_chat
+from sqlalchemy import and_
 
 
 class ChatRepo(BaseCrudRepo):
@@ -19,46 +20,9 @@ class ChatRepo(BaseCrudRepo):
 
         return chat
 
-    # def get_by_user_ids(self, user_ids: list):
-    #     # if not isinstance(user1_id, int):
-    #     #     raise ValueError(f"Value {user1_id} must be 'int' type")
-    #     # if not isinstance(user2_id, int):
-    #     #     raise ValueError(f"Value {user2_id} must be 'int' type")
-    #
-    #     # chat = Chat.query.filter_by(
-    #     #     (len(Chat.users) == 2)
-    #     #     and
-    #     #     (Chat.users[0].id == user1_id or Chat.users[1].id == user2_id)
-    #     #     and
-    #     #     (Chat.users[0].id == user2_id or Chat.users[1].id == user1_id)
-    #     # ).first()
-    #
-    #     subquery = (
-    #         db.session.query(user_chat.c.chat_id)
-    #         .filter(user_chat.c.user_id.in_(user_ids))  # Filter user IDs
-    #         .group_by(user_chat.c.chat_id)
-    #         .having(func.count(user_chat.c.user_id) == len(user_ids))  # Match exact count
-    #         .subquery()
-    #     )
-    #
-    #     # Query chats that match the subquery
-    #     chat = db.session.query(Chat).filter(Chat.id.in_(subquery)).first()
-    #
-    #     return chat
-
     def create(self, chat: Chat):
         if not isinstance(chat, Chat):
             raise ValueError(f"Value {chat} must be 'Chat' type")
-
-        # save hidden message in empty chat to track chat creation date while sorting chats
-        # if not chat.messages and len(chat.users) >= 2:
-        #     hidden_message = Message(
-        #         text="",
-        #         hidden=True,
-        #         user_id=chat.users[0],
-        #         chat_id=chat.users[1],
-        #     )
-        #     chat.messages = [hidden_message]
 
         try:
             db.session.add(chat)
@@ -92,26 +56,27 @@ class ChatRepo(BaseCrudRepo):
             raise e
 
         return chat_id
-    
-    # def add_message_to_chat(self, new_message: Message, chat_id: int):
-    #     if not isinstance(chat_id, int):
-    #         raise ValueError(f"Value {chat_id} must be 'int' type")
-    #     if not isinstance(new_message, Chat):
-    #         raise ValueError(f"Value {new_message} must be 'Message' type")
 
-    #     chat_to_update = Chat.query.filter_by(id=chat_id).first()
-    #     if chat_to_update is None:
-    #         raise ValueError(f"User with id={chat_id} doesn't exist")
+    def remove_user_from_chat(self, user_id, chat_id):
+        if not isinstance(user_id, int):
+            raise ValueError(f"Value {user_id} must be 'int' type")
+        if not isinstance(chat_id, int):
+            raise ValueError(f"Value {chat_id} must be 'int' type")
 
-    #     chat_to_update.messages.append(new_message)
+        try:
+            db.session.execute(
+                user_chat.delete().where(
+                    and_(
+                        user_chat.c.user_id == user_id,
+                        user_chat.c.chat_id == chat_id
+                    )
+                )
+            )
 
-    #     try:
-    #         db.session.commit()
-    #     except Exception as e:
-    #         db.session.rollback()
-    #         raise e
-
-    #     return chat_id
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
 
     def delete(self, chat_id):
         if not isinstance(chat_id, int):
