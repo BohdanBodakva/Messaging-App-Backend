@@ -49,7 +49,7 @@ class UserRepo(BaseCrudRepo):
             raise ValueError(f"User with id={user_id} doesn't exist")
 
         # update params
-        user_to_update.status = None
+        user_to_update.is_online = True
 
         try:
             db.session.commit()
@@ -59,7 +59,7 @@ class UserRepo(BaseCrudRepo):
 
         return user_to_update
 
-    def go_offline(self, user_id: int, datetime: datetime):
+    def go_offline(self, user_id: int):
         if not isinstance(user_id, int):
             raise ValueError(f"Value {user_id} must be 'int' type")
 
@@ -68,7 +68,7 @@ class UserRepo(BaseCrudRepo):
             raise ValueError(f"User with id={user_id} doesn't exist")
 
         # update params
-        user_to_update.status = datetime
+        user_to_update.is_online = False
 
         try:
             db.session.commit()

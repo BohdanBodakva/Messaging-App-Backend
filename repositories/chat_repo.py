@@ -33,21 +33,24 @@ class ChatRepo(BaseCrudRepo):
 
         return chat.id
 
-    def update(self, chat_id: int, new_chat: Chat):
-        if not isinstance(chat_id, int):
-            raise ValueError(f"Value {chat_id} must be 'int' type")
-        if not isinstance(new_chat, Chat):
-            raise ValueError(f"Value {new_chat} must be 'Chat' type")
+    def update(self, chat_id: int, chat: Chat):
+        pass
 
-        chat_to_update = Chat.query.filter_by(id=chat_id).first()
-        if chat_to_update is None:
-            raise ValueError(f"User with id={chat_id} doesn't exist")
+    def update_group(self, group_id: int, new_group_name: str, new_group_photo_link: str, new_group_user_list: list):
+        if not isinstance(group_id, int):
+            raise ValueError(f"Value {group_id} must be 'int' type")
+
+        group_to_update = Chat.query.filter_by(id=group_id).first()
+        if group_to_update is None:
+            raise ValueError(f"Group with id={group_id} doesn't exist")
 
         # update params
-        if new_chat.name:
-            chat_to_update.name = new_chat.name
-        if new_chat.chat_photo_link:
-            chat_to_update.chat_photo_link = new_chat.chat_photo_link
+        if new_group_name:
+            group_to_update.name = new_group_name
+        if new_group_photo_link:
+            group_to_update.chat_photo_link = new_group_photo_link
+        if new_group_user_list:
+            group_to_update.users = new_group_user_list
 
         try:
             db.session.commit()
@@ -55,7 +58,7 @@ class ChatRepo(BaseCrudRepo):
             db.session.rollback()
             raise e
 
-        return chat_id
+        return group_to_update
 
     def remove_user_from_chat(self, user_id, chat_id):
         if not isinstance(user_id, int):
@@ -82,12 +85,12 @@ class ChatRepo(BaseCrudRepo):
         if not isinstance(chat_id, int):
             raise ValueError(f"Value {chat_id} must be 'int' type")
 
-        user_to_delete = Chat.query.filter_by(id=chat_id).first()
-        if user_to_delete is None:
+        chat_to_delete = Chat.query.filter_by(id=chat_id).first()
+        if chat_to_delete is None:
             raise ValueError(f"Chat with id={chat_id} doesn't exist")
 
         try:
-            db.session.delete(user_to_delete)
+            db.session.delete(chat_to_delete)
             db.session.commit()
         except Exception as e:
             db.session.rollback()

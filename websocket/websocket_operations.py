@@ -3,19 +3,98 @@ from datetime import datetime
 from flask import request
 from flask_socketio import SocketIO, rooms, emit, join_room, leave_room
 
+from common.env_vars import env_vars
 from controllers.http_handlers.handlers import validate_access_token
 from models.db_models import Message, SentFile, User, Chat
 from repositories.chat_repo import chat_repo
 from repositories.message_repo import message_repo
 from repositories.user_repo import user_repo
 
-socketio = SocketIO()
+# import redis
 
+socketio = SocketIO()
 
 # === TOKEN ===
 
+# redis_client = redis.StrictRedis(
+#     host=env_vars['REDIS_ADDRESS'],
+#     port=env_vars['REDIS_PORT'],
+#     db=0,
+#     decode_responses=True
+# )
+#
+#
+# def add_user_to_redis(user_id, sid):
+#     """ Store user_id and SID in Redis """
+#     redis_client.hset("connected_users", user_id, sid)
+#
+#
+# def remove_user_from_redis(user_id):
+#     """ Remove user from Redis """
+#     redis_client.hdel("connected_users", user_id)
+#
+#
+# def get_connected_users():
+#     """ Get all connected users """
+#     return redis_client.hgetall("connected_users")
+#
+#
+# @socketio.on('connect')
+# def handle_connect():
+#     user_id = request.args.get('user_id')
+#     if user_id:
+#         add_user_to_redis(user_id, request.sid)
+#         print(f'User {user_id} connected. All users:', get_connected_users())
+#
+#
+# @socketio.on('disconnect')
+# def handle_disconnect():
+#     user_id = None
+#     connected_users = get_connected_users()
+#
+#     # Find user by SID
+#     for uid, sid in connected_users.items():
+#         if sid == request.sid:
+#             user_id = uid
+#             break
+#
+#     if user_id:
+#         user_repo.go_offline(user_id)
+#
+#         remove_user_from_redis(user_id)
+#         print(f'User {user_id} disconnected. Remaining users:', get_connected_users())
+#
+#         emit(
+#             "set_status",
+#             {
+#                 "msg": "Success",
+#                 "is_online": False,
+#                 "user_id": user_id
+#             },
+#             broadcast=True
+#         )
+
+
+@socketio.on('typing')
+def handle_typing(data):
+    user_id = data.get("user_id")
+    chat_id = data.get("chat_id")
+
+    user = user_repo.get_by_id(user_id)
+
+    socketio.emit(
+        "user_typing",
+        {
+            "user_id": user_id,
+            "name": user.name,
+            "surname": user.surname
+        },
+        room=chat_id
+    )
+
+
 @socketio.on("validate_token")
-def connect(data):
+def validate_token(data):
     access_token = data.get('access_token')
 
     try:
@@ -74,9 +153,7 @@ def load_user(data):
 
             user.chats.sort(reverse=True, key=sort_chats)
 
-
             user_to_load = user.serialize(include_chats=True)
-            print(user_to_load)
             emit(
                 "load_user",
                 {
@@ -94,6 +171,7 @@ def load_user(data):
                 to=request.sid
             )
     except Exception as e:
+        print(repr(e))
         emit(
             "load_user_error",
             {
@@ -120,7 +198,6 @@ def load_user_chats(data):
 
             user_chats = [chat.serialize() for chat in user.chats]
 
-            print(user_chats)
             emit(
                 "load_user_chats",
                 {
@@ -207,6 +284,14 @@ def change_user_info(data):
                 },
                 broadcast=True
             )
+            # emit(
+            #     "change_user_info_for_chat_area",
+            #     {
+            #         "msg": "Success",
+            #         "changed_user": updated_user
+            #     },
+            #     broadcast=True
+            # )
         else:
             emit(
                 "change_user_info_error",
@@ -225,12 +310,75 @@ def change_user_info(data):
         )
 
 
+@socketio.on("change_group_info")
+def change_group_info(data):
+    try:
+        group_id = data.get('group_id')
+        new_user_ids = list(data.get('new_user_ids'))
+        new_name = str(data.get('new_name'))
+        new_group_photo_link = str(data.get('new_chat_photo_link'))
+
+        group = chat_repo.get_by_id(group_id)
+
+        print([u.id for u in group.users])
+
+        if group:
+            new_users = [user_repo.get_by_id(u_id) for u_id in new_user_ids]
+
+            updated_group = chat_repo.update_group(
+                group_id=group_id,
+                new_group_name=new_name,
+                new_group_photo_link=new_group_photo_link,
+                new_group_user_list=new_users
+            )
+
+            print([u.id for u in updated_group.users])
+
+            updated_group = updated_group.serialize(
+                include_last_message=False,
+                include_messages=False
+            )
+
+            emit(
+                "change_group_info",
+                {
+                    "updated_group": updated_group
+                },
+                room=group_id
+            )
+            emit(
+                "change_group_info_from_chat_area",
+                {
+                    "updated_group": updated_group
+                },
+                room=group_id
+            )
+            emit(
+                "change_group_info_from_chat_list",
+                {
+                    "updated_group": updated_group
+                },
+                room=group_id
+            )
+    except Exception as e:
+        print(repr(e))
+        emit(
+            "change_group_info_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
 @socketio.on("go_online")
 def go_online(data):
     try:
         user_id = int(data.get('user_id'))
 
         user_repo.go_online(user_id)
+
+        print("online")
 
         emit(
             "set_status",
@@ -321,6 +469,8 @@ def load_chat_history(data):
         messages.sort(key=lambda msg: msg.send_at)
         messages = [msg.serialize() for msg in messages]
 
+        print(messages)
+
         is_end = len(messages) < items_count
 
         emit(
@@ -378,16 +528,19 @@ def on_join_room(data):
 
 @socketio.on("leave_room")
 def on_leave(data):
-    room = data.get("room")
+    try:
+        room = data.get("room")
 
-    leave_room(room)
-    emit(
-        "leave_room",
-        {
-            "msg": "Success"
-        },
-        to=room
-    )
+        leave_room(room)
+        emit(
+            "leave_room",
+            {
+                "msg": "Success"
+            },
+            to=room
+        )
+    except Exception as e:
+        print(repr(e))
 
 
 # === MESSAGE ===
@@ -513,9 +666,9 @@ def delete_message(data):
 @socketio.on("create_chat")
 @socketio.on("create_group")
 def create_chat(data):
-    event_name = str(request.event['message'])
-
     try:
+        event_name = str(request.event['message'])
+
         current_user_id = int(data.get("current_user_id"))
         user_ids = list(data.get("user_ids"))
         is_group = bool(data.get("is_group"))
@@ -568,6 +721,7 @@ def create_chat(data):
                 broadcast=True
             )
         else:
+
             emit(
                 event_name,
                 {
@@ -575,7 +729,7 @@ def create_chat(data):
                     "chat": chat.serialize(),
                     "users": [u.serialize() for u in users]
                 },
-                to=request.sid
+                broadcast=True
             )
             emit(
                 "create_group_chat_list",
@@ -587,6 +741,7 @@ def create_chat(data):
                 broadcast=True
             )
     except Exception as e:
+        print(repr(e))
         emit(
             f"{event_name}_error",
             {
@@ -608,14 +763,21 @@ def delete_chat(data):
             {
                 "chat_id": chat_id
             },
-            broadcast=True
+            room=chat_id
+        )
+        emit(
+            "delete_chat_from_chat_info",
+            {
+                "chat_id": chat_id
+            },
+            room=chat_id
         )
         emit(
             "delete_chat_from_chats",
             {
                 "chat_id": chat_id
             },
-            broadcast=True
+            room=chat_id
         )
     except Exception as e:
         emit(
@@ -632,7 +794,6 @@ def leave_group(data):
     try:
         chat_id = int(data.get("chat_id"))
         user_id = int(data.get("user_id"))
-        print(f"u: {user_id}, c: {chat_id}")
 
         chat_repo.remove_user_from_chat(user_id=user_id, chat_id=chat_id)
 
@@ -642,7 +803,15 @@ def leave_group(data):
                 "user_id": user_id,
                 "chat_id": chat_id
             },
-            broadcast=True
+            room=chat_id
+        )
+        emit(
+            "leave_group_from_chat_area",
+            {
+                "user_id": user_id,
+                "chat_id": chat_id
+            },
+            to=request.sid
         )
         emit(
             "leave_group_from_chats",
