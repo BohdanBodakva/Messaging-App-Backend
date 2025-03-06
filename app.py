@@ -25,6 +25,10 @@ app.config['SECRET_KEY'] = env_vars['FLASK_SECRET_KEY']
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = datetime.timedelta(seconds=int(env_vars['ACCESS_TOKEN_EXPIRES_SEC']))
 app.config["JWT_REFRESH_TOKEN_EXPIRES"] = datetime.timedelta(seconds=int(env_vars['REFRESH_TOKEN_EXPIRES_SEC']))
 
+# AWS S3 config
+UPLOAD_FOLDER = "uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
 # Database init
 db.init_app(app)
 

@@ -9,10 +9,30 @@ from models.db_models import Message, SentFile, User, Chat
 from repositories.chat_repo import chat_repo
 from repositories.message_repo import message_repo
 from repositories.user_repo import user_repo
+import base64
+import boto3
+import io
 
 # import redis
 
+
+
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=S3_ACCESS_KEY,
+    aws_secret_access_key=S3_SECRET_KEY,
+    region_name=S3_REGION
+)
+
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
 socketio = SocketIO()
+
 
 # === TOKEN ===
 
@@ -234,7 +254,6 @@ def change_user_info(data):
         new_name = data.get("new_name")
         new_surname = data.get("new_surname")
         new_username = data.get("new_username")
-        new_profile_photo_link = data.get("new_profile_photo_link")
 
         if user.username != new_username:
             is_username_unique = len(user_repo.get_all_by_username(new_username)) == 0
@@ -257,8 +276,6 @@ def change_user_info(data):
                 new_user.surname = str(new_surname)
             if new_username:
                 new_user.username = str(new_username)
-            if new_profile_photo_link:
-                new_user.profile_photo_link = str(new_profile_photo_link)
 
             updated_user = user_repo.update(user_id=user_id, new_user=new_user)
             updated_user = updated_user.serialize(
@@ -284,14 +301,6 @@ def change_user_info(data):
                 },
                 broadcast=True
             )
-            # emit(
-            #     "change_user_info_for_chat_area",
-            #     {
-            #         "msg": "Success",
-            #         "changed_user": updated_user
-            #     },
-            #     broadcast=True
-            # )
         else:
             emit(
                 "change_user_info_error",
@@ -849,6 +858,58 @@ def remove_user_from_chat(data):
     except Exception as e:
         emit(
             "remove_user_from_chat_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
+@socketio.on('upload_user_image')
+@socketio.on('upload_group_image')
+def handle_image(data):
+    event_name = str(request.event['message'])
+
+    try:
+        user_id = data["user_id"]
+        image_data = data["image"]
+        filename = data["filename"]
+
+        user = user_repo.get_by_id(user_id)
+        if user:
+            image_bytes = base64.b64decode(image_data)
+
+            image_file = io.BytesIO(image_bytes)
+
+            s3_client.upload_fileobj(
+                image_file,
+                S3_BUCKET,
+                filename
+            )
+
+            file_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{filename}"
+
+            user_repo.update_profile_photo_link_by_id(user_id, file_url)
+
+            emit(
+                event_name,
+                {
+                    "image_url": file_url
+                },
+                broadcast=True
+            )
+        else:
+            emit(
+                f'{event_name}_error',
+                {
+                    "error": f"User with id={user_id} doesn't exist"
+                },
+                to=request.sid
+            )
+    except Exception as e:
+        print(repr(e))
+        emit(
+            'upload_user_image_error',
             {
                 "error": repr(e)
             },

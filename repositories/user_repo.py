@@ -139,6 +139,25 @@ class UserRepo(BaseCrudRepo):
 
         return user_id
 
+    def update_profile_photo_link_by_id(self, user_id: int, new_profile_photo_link: str):
+        if not isinstance(user_id, int):
+            raise ValueError(f"Value {user_id} must be 'int' type")
+
+        user_to_update = User.query.filter_by(id=user_id).first()
+        if user_to_update is None:
+            raise ValueError(f"User with id={user_id} doesn't exist")
+
+        # update last_seen
+        user_to_update.profile_photo_link = new_profile_photo_link
+
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
+
+        return user_id
+
     def update_password_by_id(self, user_id: int, new_password: str):
         if not isinstance(user_id, int):
             raise ValueError(f"Value {user_id} must be 'int' type")
