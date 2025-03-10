@@ -70,6 +70,15 @@ def fill_db():
         db.drop_all()
         db.create_all()
 
+    ai_user = User(
+        name="AI",
+        surname="Bot",
+        username="ai_bot",
+        password=generate_password_hash("WEFRJLKEWL234534534FNVXCVXCJVNXCNVXCNlkdfjglkdfjlkvgmj354345345mcmv"),
+        is_online=False,
+        profile_photo_link="https://cdn-icons-png.flaticon.com/512/7364/7364323.png"
+    )
+
     user1 = User(
         name="User",
         surname="1",
@@ -104,7 +113,7 @@ def fill_db():
         password=generate_password_hash("5")
     )
 
-    db.session.add_all([user1, user2, user3, user4, user5])
+    db.session.add_all([ai_user, user1, user2, user3, user4, user5])
     db.session.commit()
 
 

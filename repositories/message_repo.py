@@ -122,6 +122,21 @@ class MessageRepo(BaseCrudRepo):
             db.session.rollback()
             raise e
 
+    def clear_chat_history(self, chat_id):
+        if not isinstance(chat_id, int):
+            raise ValueError(f"Value {chat_id} must be 'int' type")
+
+        chat = Chat.query.filter_by(id=chat_id).first()
+
+        try:
+            for message in chat.messages:
+                db.session.delete(message)
+                db.session.commit()
+
+        except Exception as e:
+            db.session.rollback()
+            raise e
+
     def delete_unread_messages(self, user_id, chat_id):
         if not isinstance(user_id, int):
             raise ValueError(f"Value {user_id} must be 'int' type")

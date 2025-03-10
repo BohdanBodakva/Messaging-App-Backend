@@ -88,7 +88,8 @@ class Message(db.Model):
     sent_files = db.relationship('SentFile', backref=__tablename__, lazy='joined')
     send_at = db.Column(db.DateTime, nullable=False, default=datetime.now())
     hidden = db.Column(db.Boolean, nullable=False, default=False)
-    users_that_unread = db.relationship('User', secondary=unread_messages, back_populates="unread_messages", lazy='joined')
+    users_that_unread = db.relationship('User', secondary=unread_messages, back_populates="unread_messages",
+                                        lazy='joined')
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'))
     chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='SET NULL'))
 

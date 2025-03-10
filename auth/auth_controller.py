@@ -1,8 +1,10 @@
 from flask import request, Blueprint
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, JWTManager
+
+from repositories.chat_repo import chat_repo
 from repositories.user_repo import user_repo
 from werkzeug.security import generate_password_hash, check_password_hash
-from models.db_models import User
+from models.db_models import User, Chat
 
 auth_bp = Blueprint('auth_bp', __name__)
 
@@ -75,7 +77,13 @@ def signup():
                 )
 
                 try:
+                    # Create user
                     user_repo.create(user)
+
+                    # Create AI-chat for user
+                    ai_user = user_repo.get_by_id(1)
+                    ai_chat = Chat(users=[user, ai_user])
+                    chat_repo.create(ai_chat)
                 except Exception as e:
                     return {
                         "msg": repr(e)

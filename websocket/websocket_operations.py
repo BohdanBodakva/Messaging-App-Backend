@@ -1,9 +1,10 @@
+import time
 from datetime import datetime
 
+import requests
 from flask import request
 from flask_socketio import SocketIO, rooms, emit, join_room, leave_room
 
-from common.env_vars import env_vars
 from controllers.http_handlers.handlers import validate_access_token
 from models.db_models import Message, SentFile, User, Chat
 from repositories.chat_repo import chat_repo
@@ -32,67 +33,6 @@ def allowed_file(filename):
 
 
 socketio = SocketIO()
-
-
-# === TOKEN ===
-
-# redis_client = redis.StrictRedis(
-#     host=env_vars['REDIS_ADDRESS'],
-#     port=env_vars['REDIS_PORT'],
-#     db=0,
-#     decode_responses=True
-# )
-#
-#
-# def add_user_to_redis(user_id, sid):
-#     """ Store user_id and SID in Redis """
-#     redis_client.hset("connected_users", user_id, sid)
-#
-#
-# def remove_user_from_redis(user_id):
-#     """ Remove user from Redis """
-#     redis_client.hdel("connected_users", user_id)
-#
-#
-# def get_connected_users():
-#     """ Get all connected users """
-#     return redis_client.hgetall("connected_users")
-#
-#
-# @socketio.on('connect')
-# def handle_connect():
-#     user_id = request.args.get('user_id')
-#     if user_id:
-#         add_user_to_redis(user_id, request.sid)
-#         print(f'User {user_id} connected. All users:', get_connected_users())
-#
-#
-# @socketio.on('disconnect')
-# def handle_disconnect():
-#     user_id = None
-#     connected_users = get_connected_users()
-#
-#     # Find user by SID
-#     for uid, sid in connected_users.items():
-#         if sid == request.sid:
-#             user_id = uid
-#             break
-#
-#     if user_id:
-#         user_repo.go_offline(user_id)
-#
-#         remove_user_from_redis(user_id)
-#         print(f'User {user_id} disconnected. Remaining users:', get_connected_users())
-#
-#         emit(
-#             "set_status",
-#             {
-#                 "msg": "Success",
-#                 "is_online": False,
-#                 "user_id": user_id
-#             },
-#             broadcast=True
-#         )
 
 
 @socketio.on('typing')
@@ -518,6 +458,30 @@ def load_chat_history(data):
         )
 
 
+@socketio.on("clear_chat_history")
+def load_chat_history(data):
+    try:
+        chat_id = int(data.get('chat_id'))
+
+        message_repo.clear_chat_history(chat_id)
+
+        emit(
+            "clear_chat_history",
+            {
+                "msg": "Success"
+            },
+            to=request.sid
+        )
+    except Exception as e:
+        emit(
+            "clear_chat_history_error",
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
 # === ROOMS ===
 
 @socketio.on("join_room")
@@ -586,7 +550,7 @@ def send_message(data):
         )
 
         message.id = message_repo.create(message)
-        message = message.serialize(include_files=True);
+        message = message.serialize(include_files=True)
 
         user_that_send = user_repo.get_by_id(user_id)
         user_that_send = user_that_send.serialize(
@@ -907,9 +871,121 @@ def handle_image(data):
                 to=request.sid
             )
     except Exception as e:
-        print(repr(e))
         emit(
             'upload_user_image_error',
+            {
+                "error": repr(e)
+            },
+            to=request.sid
+        )
+
+
+TOGETHER_AI_BEARER_TOKEN = "6db4431fee0f8d275a3473835f5650e913d88a68b08ea57ce86d97a04ced89d7"
+
+
+@socketio.on("ai_chat")
+def ai_chat(data):
+    print("GO")
+    try:
+        user_input = data["prompt"]
+        user_id = int(data["user_id"])
+        chat_id = int(data["chat_id"])
+        sent_at = data["sent_at"]
+
+        if not user_input:
+            emit(
+                "ai_chat_error",
+                {
+                    "error": "Incorrect or empty user input"
+                },
+                to=request.sid
+            )
+
+        ai_user = user_repo.get_by_id(1)
+        user = user_repo.get_by_id(user_id)
+        chat = chat_repo.get_by_id(chat_id)
+
+        # Save user message
+        message = Message(
+            text=user_input,
+            send_at=sent_at if sent_at else datetime.now(),
+            sent_files=[],
+            users_that_unread=[],
+            user_id=user_id,
+            chat_id=chat_id
+        )
+
+        message.id = message_repo.create(message)
+        message = message.serialize()
+
+        print(f"NEW MESSAGE: {message}")
+
+        emit(
+            "send_message",
+            {
+                "message": message,
+                "room": chat_id
+            },
+            room=chat_id
+        )
+
+        # Save AI message
+        prompt = [
+            {"role": "user", "content": user_input}
+        ]
+
+        # last_messages = message_repo.get_by_chat_id(
+        #     chat_id=chat_id,
+        #     limit=10,
+        #     offset=0
+        # )
+        # for msg in last_messages:
+        #     role = "assistant" if msg.user_id == 1 else "user"
+        #     prompt.append(
+        #         {"role": role, "content": msg.text}
+        #     )
+
+        print(f"PROMPT: {prompt}")
+
+        response = requests.post(
+            "https://api.together.xyz/v1/chat/completions",
+            headers={"Authorization": f"Bearer {TOGETHER_AI_BEARER_TOKEN}"},
+            json={
+                "model": "meta-llama/Llama-2-7b-chat-hf",
+                "messages": prompt,
+                "max_tokens": 250
+            }
+        )
+
+        print(response.json())
+
+        ai_response_text = response.json()["choices"][0]["message"]["content"]
+
+        ai_message = Message(
+            text=ai_response_text,
+            send_at=datetime.now(),
+            sent_files=[],
+            users_that_unread=[],
+            user_id=1,
+            chat_id=chat_id
+        )
+
+        ai_message.id = message_repo.create(ai_message)
+        ai_message = ai_message.serialize()
+
+        time.sleep(0.5)
+        emit(
+            "send_message",
+            {
+                "message": ai_message,
+                "room": chat_id
+            },
+            room=chat_id
+        )
+    except Exception as e:
+        print(repr(e))
+        emit(
+            'ai_chat_error',
             {
                 "error": repr(e)
             },
